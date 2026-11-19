@@ -4,7 +4,6 @@ from tkinter import messagebox, ttk
 
 
 def format_time(seconds: float) -> str:
-    # Переводим секунды в формат ЧЧ:ММ:СС.сс
     total_cs = int(round(max(0.0, seconds) * 100))
     hours, rem = divmod(total_cs, 360000)
     minutes, rem = divmod(rem, 6000)
@@ -13,8 +12,6 @@ def format_time(seconds: float) -> str:
 
 
 class Stopwatch:
-    """Логика секундомера."""
-
     def __init__(self) -> None:
         self.is_running = False
         self.start_time = 0.0
@@ -24,7 +21,6 @@ class Stopwatch:
 
     def start(self) -> None:
         if not self.is_running:
-            # Используем perf_counter, чтобы время не плыло при лагах интерфейса
             self.start_time = time.perf_counter()
             self.is_running = True
 
@@ -54,8 +50,6 @@ class Stopwatch:
 
 
 class CountdownTimer:
-    """Логика таймера обратного отсчёта."""
-
     def __init__(self) -> None:
         self.is_running = False
         self.total_seconds = 0.0
@@ -105,7 +99,6 @@ class CountdownTimer:
 
 
 class TimerStopwatchApp(tk.Tk):
-    """Главное окно приложения."""
 
     BG_DARK, BG_PANEL, BG_ENTRY = "#1E1E2E", "#2A2A3D", "#313244"
     TEXT_LIGHT, TEXT_GRAY = "#CDD6F4", "#A6ADC8"
@@ -131,16 +124,30 @@ class TimerStopwatchApp(tk.Tk):
         self._create_menu()
         self._create_widgets()
 
+        self.timer.set_time(0, 5, 0)
+        self._update_screen()
+        self.after(30, self._tick)
+
     def report_callback_exception(self, exc, val, tb) -> None:
-        # Перехватываем любые непредвиденные ошибки Tkinter, чтобы окно не закрывалось
         messagebox.showerror("Ошибка", f"Произошла ошибка:\n{val}")
 
     def _create_menu(self) -> None:
         menubar = tk.Menu(self)
 
         file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Сбросить", command=self._on_reset)
+        file_menu.add_separator()
         file_menu.add_command(label="Выход", command=self.destroy)
         menubar.add_cascade(label="Файл", menu=file_menu)
+
+        mode_menu = tk.Menu(menubar, tearoff=0)
+        mode_menu.add_command(
+            label="Секундомер", command=lambda: self._switch_mode("stopwatch")
+        )
+        mode_menu.add_command(
+            label="Таймер", command=lambda: self._switch_mode("timer")
+        )
+        menubar.add_cascade(label="Режим", menu=mode_menu)
 
         window_menu = tk.Menu(menubar, tearoff=0)
         for label, w, h in [
@@ -185,7 +192,6 @@ class TimerStopwatchApp(tk.Tk):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(2, weight=1)
 
-        # Верхние вкладки переключения режимов
         top_bar = tk.Frame(self, bg=self.BG_DARK)
         top_bar.grid(row=0, column=0, sticky="ew", padx=15, pady=(12, 6))
         top_bar.columnconfigure((0, 1), weight=1)
@@ -193,16 +199,18 @@ class TimerStopwatchApp(tk.Tk):
         self.btn_sw_mode = tk.Button(
             top_bar, text="Секундомер", font=("Segoe UI", 11, "bold"),
             bg=self.BLUE, fg="#11111B", bd=0, pady=8, cursor="hand2",
+            command=lambda: self._switch_mode("stopwatch"),
         )
         self.btn_sw_mode.grid(row=0, column=0, sticky="ew", padx=(0, 4))
 
         self.btn_tm_mode = tk.Button(
             top_bar, text="Таймер", font=("Segoe UI", 11, "bold"),
             bg=self.BG_PANEL, fg=self.TEXT_GRAY, bd=0, pady=8, cursor="hand2",
+            command=lambda: self._switch_mode("timer"),
         )
         self.btn_tm_mode.grid(row=0, column=1, sticky="ew", padx=(4, 0))
 
-        # Табло времени
+        
         display_box = tk.Frame(self, bg=self.BG_PANEL, padx=15, pady=18)
         display_box.grid(row=1, column=0, sticky="ew", padx=15, pady=6)
         display_box.columnconfigure(0, weight=1)
@@ -219,7 +227,6 @@ class TimerStopwatchApp(tk.Tk):
         )
         self.time_label.grid(row=1, column=0, pady=6)
 
-        # Рабочая область (таблица кругов или ввод интервала таймера)
         self.workspace = tk.Frame(self, bg=self.BG_DARK)
         self.workspace.grid(row=2, column=0, sticky="nsew", padx=15, pady=6)
         self.workspace.columnconfigure(0, weight=1)
@@ -274,21 +281,23 @@ class TimerStopwatchApp(tk.Tk):
 
         self.tm_frame.grid_remove()
 
-        # Нижняя панель кнопок
         self.btn_bar = tk.Frame(self, bg=self.BG_DARK)
         self.btn_bar.grid(row=3, column=0, sticky="ew", padx=15, pady=(6, 10))
 
         self.btn_start = tk.Button(
             self.btn_bar, text="Старт", font=("Segoe UI", 11, "bold"),
             bg=self.GREEN, fg="#11111B", bd=0, pady=10, cursor="hand2",
+            command=self._on_start_pause,
         )
         self.btn_lap = tk.Button(
             self.btn_bar, text="Круг", font=("Segoe UI", 11, "bold"),
             bg=self.BLUE, fg="#11111B", bd=0, pady=10, cursor="hand2",
+            command=self._on_lap,
         )
         self.btn_reset = tk.Button(
             self.btn_bar, text="Сброс", font=("Segoe UI", 11, "bold"),
             bg=self.RED, fg="#11111B", bd=0, pady=10, cursor="hand2",
+            command=self._on_reset,
         )
         self._place_buttons(is_stopwatch=True)
 
@@ -297,8 +306,9 @@ class TimerStopwatchApp(tk.Tk):
             fg=self.TEXT_GRAY, anchor="w", padx=12, pady=5, font=("Segoe UI", 9),
         ).grid(row=4, column=0, sticky="ew")
 
+        self.bind("<Configure>", self._on_window_resize)
+
     def _place_buttons(self, is_stopwatch: bool) -> None:
-        # В секундомере 3 кнопки (Старт, Круг, Сброс), в таймере — 2 (Старт, Сброс)
         for btn in (self.btn_start, self.btn_lap, self.btn_reset):
             btn.grid_forget()
 
@@ -313,6 +323,137 @@ class TimerStopwatchApp(tk.Tk):
             self.btn_start.grid(row=0, column=0, sticky="ew", padx=(0, 5))
             self.btn_reset.grid(row=0, column=1, sticky="ew", padx=(5, 0))
 
+    def _switch_mode(self, new_mode: str) -> None:
+        if self.mode == new_mode:
+            return
+        self.mode = new_mode
+        is_sw = new_mode == "stopwatch"
+
+        if is_sw:
+            self.tm_frame.grid_remove()
+            self.sw_frame.grid()
+            self.mode_label.config(text="СЕКУНДОМЕР")
+            self.btn_sw_mode.config(bg=self.BLUE, fg="#11111B")
+            self.btn_tm_mode.config(bg=self.BG_PANEL, fg=self.TEXT_GRAY)
+            self.status_var.set("Режим: Секундомер")
+        else:
+            self.sw_frame.grid_remove()
+            self.tm_frame.grid()
+            self.mode_label.config(text="ТАЙМЕР ОБРАТНОГО ОТСЧЁТА")
+            self.btn_tm_mode.config(bg=self.BLUE, fg="#11111B")
+            self.btn_sw_mode.config(bg=self.BG_PANEL, fg=self.TEXT_GRAY)
+            self.status_var.set("Режим: Таймер")
+
+        self._place_buttons(is_sw)
+        self._update_start_button()
+        self._update_screen()
+
+    def _read_timer_inputs(self) -> None:
+        raw_values = [
+            self.hours_var.get().strip(),
+            self.minutes_var.get().strip(),
+            self.seconds_var.get().strip(),
+        ]
+        if not all(raw_values):
+            raise ValueError("Заполните все поля времени (часы, минуты, секунды).")
+        try:
+            hours, minutes, seconds = map(int, raw_values)
+        except ValueError as err:
+            raise ValueError("В полях времени допускаются только целые числа.") from err
+
+        self.timer.set_time(hours, minutes, seconds)
+        self.hours_var.set(f"{hours:02d}")
+        self.minutes_var.set(f"{minutes:02d}")
+        self.seconds_var.set(f"{seconds:02d}")
+
+    def _on_start_pause(self) -> None:
+        try:
+            if self.mode == "stopwatch":
+                if self.stopwatch.is_running:
+                    self.stopwatch.pause()
+                    self.status_var.set("Секундомер на паузе")
+                else:
+                    self.stopwatch.start()
+                    self.status_var.set("Секундомер запущен")
+            else:
+                if self.timer.is_running:
+                    self.timer.pause()
+                    self.status_var.set("Таймер на паузе")
+                else:
+                    if self.timer.remaining in (0.0, self.timer.total_seconds):
+                        self._read_timer_inputs()
+                    self.timer.start()
+                    self.status_var.set("Таймер запущен")
+        except ValueError as err:
+            messagebox.showwarning("Некорректный ввод", str(err))
+            self.status_var.set(f"Ошибка: {err}")
+
+        self._update_start_button()
+        self._update_screen()
+
+    def _on_lap(self) -> None:
+        try:
+            num, lap_sec, total_sec = self.stopwatch.add_lap()
+            self.laps_table.insert(
+                "", 0,
+                values=(f"#{num:02d}", format_time(lap_sec), format_time(total_sec)),
+            )
+            self.status_var.set(f"Записан круг #{num}")
+        except RuntimeError as err:
+            messagebox.showinfo("Внимание", str(err))
+
+    def _on_reset(self) -> None:
+        if self.mode == "stopwatch":
+            self.stopwatch.reset()
+            self.laps_table.delete(*self.laps_table.get_children())
+            self.status_var.set("Секундомер сброшен")
+        else:
+            try:
+                self._read_timer_inputs()
+            except ValueError as err:
+                self.timer.reset()
+                messagebox.showwarning("Некорректный ввод", str(err))
+            self.status_var.set("Таймер сброшен")
+
+        self._update_start_button()
+        self._update_screen()
+
+    def _update_start_button(self) -> None:
+        if self.mode == "stopwatch":
+            running = self.stopwatch.is_running
+            started = self.stopwatch.elapsed > 0
+        else:
+            running = self.timer.is_running
+            started = 0 < self.timer.remaining < self.timer.total_seconds
+
+        if running:
+            self.btn_start.config(text="Пауза", bg=self.YELLOW)
+        elif started:
+            self.btn_start.config(text="Продолжить", bg=self.GREEN)
+        else:
+            self.btn_start.config(text="Старт", bg=self.GREEN)
+
+    def _update_screen(self) -> None:
+        if self.mode == "stopwatch":
+            self.time_label.config(
+                text=format_time(self.stopwatch.get_time()), fg=self.TEXT_LIGHT
+            )
+        else:
+            rem, finished = self.timer.get_time()
+            warn = 0 < rem <= 10 and self.timer.is_running
+            self.time_label.config(
+                text=format_time(rem), fg=self.RED if warn else self.TEXT_LIGHT
+            )
+            if finished:
+                self._update_start_button()
+                self.status_var.set("Время вышло!")
+                self.bell()
+                messagebox.showinfo("Таймер", "Время вышло!")
+
+    def _tick(self) -> None:
+        self._update_screen()
+        self.after(30, self._tick)
+
     def _set_window_size(self, width: int, height: int) -> None:
         self.geometry(f"{width}x{height}")
         self.status_var.set(f"Размер окна: {width}×{height}")
@@ -323,6 +464,11 @@ class TimerStopwatchApp(tk.Tk):
         self.status_var.set(
             f"Изменение размера окна: {'разрешено' if allowed else 'запрещено'}"
         )
+
+    def _on_window_resize(self, event) -> None:
+        if event.widget is self:
+            font_size = max(26, min(64, event.width // 12))
+            self.time_label.config(font=("Consolas", font_size, "bold"))
 
 
 if __name__ == "__main__":
