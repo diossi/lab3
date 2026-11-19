@@ -129,6 +129,7 @@ class TimerStopwatchApp(tk.Tk):
         self.configure(bg=self.BG_DARK)
 
         self._create_menu()
+        self._create_widgets()
 
     def report_callback_exception(self, exc, val, tb) -> None:
         # Перехватываем любые непредвиденные ошибки Tkinter, чтобы окно не закрывалось
@@ -167,6 +168,150 @@ class TimerStopwatchApp(tk.Tk):
         )
         menubar.add_cascade(label="Справка", menu=help_menu)
         self.config(menu=menubar)
+
+    def _create_widgets(self) -> None:
+        style = ttk.Style(self)
+        style.theme_use("clam")
+        style.configure(
+            "Treeview", background=self.BG_PANEL, foreground=self.TEXT_LIGHT,
+            fieldbackground=self.BG_PANEL, borderwidth=0, rowheight=25,
+            font=("Consolas", 10),
+        )
+        style.configure(
+            "Treeview.Heading", background=self.BG_ENTRY,
+            foreground=self.TEXT_LIGHT, font=("Segoe UI", 10, "bold"),
+        )
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(2, weight=1)
+
+        # Верхние вкладки переключения режимов
+        top_bar = tk.Frame(self, bg=self.BG_DARK)
+        top_bar.grid(row=0, column=0, sticky="ew", padx=15, pady=(12, 6))
+        top_bar.columnconfigure((0, 1), weight=1)
+
+        self.btn_sw_mode = tk.Button(
+            top_bar, text="Секундомер", font=("Segoe UI", 11, "bold"),
+            bg=self.BLUE, fg="#11111B", bd=0, pady=8, cursor="hand2",
+        )
+        self.btn_sw_mode.grid(row=0, column=0, sticky="ew", padx=(0, 4))
+
+        self.btn_tm_mode = tk.Button(
+            top_bar, text="Таймер", font=("Segoe UI", 11, "bold"),
+            bg=self.BG_PANEL, fg=self.TEXT_GRAY, bd=0, pady=8, cursor="hand2",
+        )
+        self.btn_tm_mode.grid(row=0, column=1, sticky="ew", padx=(4, 0))
+
+        # Табло времени
+        display_box = tk.Frame(self, bg=self.BG_PANEL, padx=15, pady=18)
+        display_box.grid(row=1, column=0, sticky="ew", padx=15, pady=6)
+        display_box.columnconfigure(0, weight=1)
+
+        self.mode_label = tk.Label(
+            display_box, text="СЕКУНДОМЕР", bg=self.BG_PANEL,
+            fg=self.TEXT_GRAY, font=("Segoe UI", 9, "bold"),
+        )
+        self.mode_label.grid(row=0, column=0)
+
+        self.time_label = tk.Label(
+            display_box, text="00:00:00.00", bg=self.BG_PANEL,
+            fg=self.TEXT_LIGHT, font=("Consolas", 38, "bold"),
+        )
+        self.time_label.grid(row=1, column=0, pady=6)
+
+        # Рабочая область (таблица кругов или ввод интервала таймера)
+        self.workspace = tk.Frame(self, bg=self.BG_DARK)
+        self.workspace.grid(row=2, column=0, sticky="nsew", padx=15, pady=6)
+        self.workspace.columnconfigure(0, weight=1)
+        self.workspace.rowconfigure(0, weight=1)
+
+        self.sw_frame = tk.Frame(self.workspace, bg=self.BG_PANEL)
+        self.sw_frame.grid(row=0, column=0, sticky="nsew")
+        self.sw_frame.columnconfigure(0, weight=1)
+        self.sw_frame.rowconfigure(0, weight=1)
+
+        self.laps_table = ttk.Treeview(
+            self.sw_frame, columns=("num", "lap", "total"), show="headings"
+        )
+        for col, title, width in (
+            ("num", "Круг №", 75),
+            ("lap", "Время круга", 150),
+            ("total", "Общее время", 150),
+        ):
+            self.laps_table.heading(col, text=title)
+            self.laps_table.column(col, width=width, anchor="center")
+
+        scrollbar = ttk.Scrollbar(
+            self.sw_frame, orient="vertical", command=self.laps_table.yview
+        )
+        self.laps_table.configure(yscrollcommand=scrollbar.set)
+        self.laps_table.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+
+        self.tm_frame = tk.Frame(self.workspace, bg=self.BG_PANEL, padx=15, pady=20)
+        self.tm_frame.grid(row=0, column=0, sticky="nsew")
+        self.tm_frame.columnconfigure((0, 1, 2), weight=1)
+
+        tk.Label(
+            self.tm_frame, text="Введите время (ЧЧ : ММ : СС)",
+            bg=self.BG_PANEL, fg=self.TEXT_LIGHT, font=("Segoe UI", 10, "bold"),
+        ).grid(row=0, column=0, columnspan=3, pady=(0, 12))
+
+        for col, (title, var) in enumerate((
+            ("Часы (0–99)", self.hours_var),
+            ("Минуты (0–59)", self.minutes_var),
+            ("Секунды (0–59)", self.seconds_var),
+        )):
+            tk.Label(
+                self.tm_frame, text=title, bg=self.BG_PANEL,
+                fg=self.TEXT_GRAY, font=("Segoe UI", 9),
+            ).grid(row=1, column=col, pady=(0, 4))
+            tk.Entry(
+                self.tm_frame, textvariable=var, justify="center", width=5,
+                font=("Consolas", 18, "bold"), bg=self.BG_ENTRY,
+                fg=self.TEXT_LIGHT, insertbackground=self.TEXT_LIGHT, relief="flat",
+            ).grid(row=2, column=col, padx=6, ipady=6)
+
+        self.tm_frame.grid_remove()
+
+        # Нижняя панель кнопок
+        self.btn_bar = tk.Frame(self, bg=self.BG_DARK)
+        self.btn_bar.grid(row=3, column=0, sticky="ew", padx=15, pady=(6, 10))
+
+        self.btn_start = tk.Button(
+            self.btn_bar, text="Старт", font=("Segoe UI", 11, "bold"),
+            bg=self.GREEN, fg="#11111B", bd=0, pady=10, cursor="hand2",
+        )
+        self.btn_lap = tk.Button(
+            self.btn_bar, text="Круг", font=("Segoe UI", 11, "bold"),
+            bg=self.BLUE, fg="#11111B", bd=0, pady=10, cursor="hand2",
+        )
+        self.btn_reset = tk.Button(
+            self.btn_bar, text="Сброс", font=("Segoe UI", 11, "bold"),
+            bg=self.RED, fg="#11111B", bd=0, pady=10, cursor="hand2",
+        )
+        self._place_buttons(is_stopwatch=True)
+
+        tk.Label(
+            self, textvariable=self.status_var, bg=self.BG_PANEL,
+            fg=self.TEXT_GRAY, anchor="w", padx=12, pady=5, font=("Segoe UI", 9),
+        ).grid(row=4, column=0, sticky="ew")
+
+    def _place_buttons(self, is_stopwatch: bool) -> None:
+        # В секундомере 3 кнопки (Старт, Круг, Сброс), в таймере — 2 (Старт, Сброс)
+        for btn in (self.btn_start, self.btn_lap, self.btn_reset):
+            btn.grid_forget()
+
+        if is_stopwatch:
+            self.btn_bar.columnconfigure((0, 1, 2), weight=1, uniform="btns")
+            self.btn_start.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+            self.btn_lap.grid(row=0, column=1, sticky="ew", padx=5)
+            self.btn_reset.grid(row=0, column=2, sticky="ew", padx=(5, 0))
+        else:
+            self.btn_bar.columnconfigure(2, weight=0, uniform="")
+            self.btn_bar.columnconfigure((0, 1), weight=1, uniform="btns")
+            self.btn_start.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+            self.btn_reset.grid(row=0, column=1, sticky="ew", padx=(5, 0))
 
     def _set_window_size(self, width: int, height: int) -> None:
         self.geometry(f"{width}x{height}")
